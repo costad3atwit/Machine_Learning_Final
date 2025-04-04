@@ -1,0 +1,314 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.16.7
+  kernelspec:
+    display_name: R
+    name: ir
+output: pdf_document
+---
+
+
+# Machine Learning Final Project
+*Authors: David Costa, Lucas Gaspar*
+
+
+## Project Description
+
+The goal of this project is to apply multiple machine/statistical learning techniques we've learned over the course of the semester in MATH 4050 to a fictional dataset of 8,000 observations with 31 features. We intend to use unsupervised learning (Hierarchical clustering) to conduct some preliminary examination and help guide the decision of which features to use as response variables (1 categorical and 1 numerical). We will then use best practices to develop Linear/Logistic regression, Decision Tree, Random Forest, and Support Vector Machine models. Along the way we will use various tuning methods, validation techiniques, and dimensional reduction techniques to ensure that our models are well fit, and robust.
+
+The data used in the project is a fictional dataset containing 31 features about a given household. It contains 16 categorical and 15 numerical variables:
+
+| Feature     | Description                                                                 |
+|-------------|-----------------------------------------------------------------------------|
+| **urbrur**  | Whether the household is located in urban or rural location                 |
+| **hhsize**  | Household size (number of members)                                          |
+| **statocc** | Whether the household rents, owns, or has free occupancy                    |
+| **rooms**   | Number of rooms in the household                                             |
+| **bedrooms**| Number of bedrooms in the household                                          |
+| **floor**   | Floor number where the household is located (if applicable)                 |
+| **walls**   | Type of walls in the household                                               |
+| **roof**    | Type of roof in the household                                                |
+| **electricity** | Whether the household has electricity                                    |
+| **cook_fuel** | Type of cooking fuel used in the household                                |
+| **phone**   | Whether the household has a phone                                            |
+| **cell**    | Whether the household has a mobile phone                                     |
+| **car**     | Whether the household has a car                                              |
+| **bicycle** | Whether the household has a bicycle                                          |
+| **motorcycle** | Whether the household has a motorcycle                                    |
+| **refrigerator** | Whether the household has a refrigerator                                |
+| **tv**      | Whether the household has a television                                       |
+| **radio**   | Whether the household has a radio                                            |
+| **bank**    | Whether the household has a bank account                                     |
+| **exp_01**  | Annual spending on Food and non-alcoholic beverages                          |
+| **exp_02**  | Annual spending on Alcoholic beverages, tobacco and narcotics                |
+| **exp_03**  | Annual spending on Clothing and footwear                                     |
+| **exp_04**  | Annual spending on Housing, water, electricity, gas and other fuels          |
+| **exp_05**  | Annual spending on Furnishing, household equipment and routine maintenance   |
+| **exp_06**  | Annual spending on Health                                                    |
+| **exp_07**  | Annual spending on Transport                                                 |
+| **exp_08**  | Annual spending on Communication                                             |
+| **exp_09**  | Annual spending on Recreation and culture                                    |
+| **exp_10**  | Annual spending on Education                                                 |
+| **exp_11**  | Annual spending on Catering and accommodation services                       |
+| **exp_12**  | Annual spending on Miscellaneous goods and services                         |
+
+
+```{r}
+df <- read.csv("https://raw.githubusercontent.com/costad3atwit/Machine_Learning_Final/refs/heads/main/projectData.csv")
+```
+
+```{r}
+#install.packages("gower")
+library(gower)
+#install.packages("StatMatch")
+library(StatMatch)
+```
+
+
+```{r}
+#TODO
+# Seems to work since it only correctly runs once
+
+df <- df %>% rename(
+  spend_food = exp_01,
+  spend_alcohol = exp_02,
+  spend_clothes = exp_03,
+  spend_housing = exp_04,
+  spend_furnishing = exp_05,
+  spend_health = exp_06,
+  spend_transport = exp_07,
+  spend_communication = exp_08,
+  spend_recreation = exp_09,
+  spend_education = exp_10,
+  spend_catering = exp_11,
+  spend_misc = exp_12
+)
+```
+
+
+```{r}
+#TODO
+# NEEDED FOR CLASSIFICATION PROBLEMS
+str(df$tv)
+df$tv <- as.factor(df$tv)
+```
+
+```{r}
+head(df)
+```
+
+## Unsupervised Data Analysis: Clustering
+
+We use cluster analysis to help pick an interesting response variable via hierarchical clustering
+
+- Tune “cut-off height” for clusters (dissimilarity)
+- To determine what we would like to predict (1 categorical and 1 numerical) and understand the data a little better.
+- Use Gower distance w/ hierarchical cus mixed data (chapter 12 lab)
+- Include formula for gower distance in rmd
+- Explain how hierarchical clustering converges to 1 or more clusters
+
+
+```{r}
+gower_df = gower.dist(df)
+```
+
+```{r}
+#gower_df
+```
+
+```{r}
+library(cluster)
+```
+
+```{r}
+par(mfrow = c(3,2))
+```
+
+
+```{r}
+#TODO 
+# Seems pretty broken but the calculations work at least
+pam_result <- plot(pam(gower_df, k=2, diss=TRUE), main = "Silhouetter Chart with 2 clusters", xlab = "", sub = "", cex = .9)
+```
+
+```{r}
+plot(pam(gower_df, k=2, diss=TRUE), main = "Silhouetter Chart with 2 clusters",
+xlab = "", sub = "", cex = .9)
+```
+
+
+```{r}
+#TODO I dont know what is wrong with this or if you still want it but im leaving it
+# Add cluster assignments to your original dataframe
+df$cluster <- pam_result$clustering
+
+# Create empty lists to store results
+numeric_results <- list()
+categorical_results <- list()
+
+# Loop through each variable (except the cluster variable)
+for(var_name in names(df)[1:31]) {
+
+  if(is.numeric(df[[var_name]])) {
+    # For numeric variables
+    # Calculate mean, median, standard deviation by cluster
+    stats_by_cluster <- aggregate(df[[var_name]] ~ cluster, data=df,
+                                 FUN=function(x) c(mean=mean(x, na.rm=TRUE),
+                                                  median=median(x, na.rm=TRUE),
+                                                  sd=sd(x, na.rm=TRUE)))
+
+    # Calculate standardized difference (Cohen's d)
+    means <- c(stats_by_cluster[1,2][1], stats_by_cluster[2,2][1])
+    sds <- c(stats_by_cluster[1,2][3], stats_by_cluster[2,2][3])
+    pooled_sd <- sqrt((sds[1]^2 + sds[2]^2)/2)
+    effect_size <- abs(means[1] - means[2])/pooled_sd
+
+    # Perform t-test between clusters
+    t_test_result <- t.test(df[[var_name]] ~ df$cluster)
+
+    # Store results
+    numeric_results[[var_name]] <- data.frame(
+      variable = var_name,
+      cluster1_mean = means[1],
+      cluster2_mean = means[2],
+      mean_difference = abs(means[1] - means[2]),
+      effect_size = effect_size,
+      p_value = t_test_result$p.value
+    )
+
+  } else {
+    # For categorical variables
+    # Create contingency table
+    cont_table <- table(df$cluster, df[[var_name]])
+
+    # Calculate proportions within each cluster
+    prop_table <- prop.table(cont_table, margin=1)
+
+    # Chi-square test
+    chi_test <- chisq.test(cont_table)
+
+    # Calculate Cramer's V (effect size for categorical variables)
+    n <- sum(cont_table)
+    cramers_v <- sqrt(chi_test$statistic / (n * (min(dim(cont_table)) - 1)))
+
+    # Store results
+    categorical_results[[var_name]] <- data.frame(
+      variable = var_name,
+      chi_square = chi_test$statistic,
+      p_value = chi_test$p.value,
+      cramers_v = cramers_v
+    )
+  }
+}
+
+# Combine results
+numeric_df <- do.call(rbind, numeric_results)
+categorical_df <- do.call(rbind, categorical_results)
+
+# Sort by effect size/statistical significance
+numeric_df <- numeric_df[order(-numeric_df$effect_size),]
+categorical_df <- categorical_df[order(-categorical_df$cramers_v),]
+
+# Print top 10 most differentiating variables
+print("Top 10 Numeric Variables:")
+print(head(numeric_df, 10))
+print("Top 10 Categorical Variables:")
+print(head(categorical_df, 10))
+```
+
+Based on the top ten most meaningful features derived above through clustering, we've decided to move forward with our supervised learning techniques predicting on **spend_housing** *(spending on housing AND utilities)*, **and tv** *(television)*
+
+## Subsetting the Data
+
+We'll need to set aside some test data before we work with any supervised learning techniques so that we can perform accurate validation
+
+```{r}
+sample = sample(nrow(df), nrow(df) * .75)
+df.train <- df[sample, ]
+df.test <- df[-sample, ]
+
+head(df.train)
+
+head(df.test)
+```
+
+## Linear Regression
+
+- Forward Stepwise Selection:
+ - Pick best subset to use for lin regression by comparing all models m_0, m_1, m_2…m_p using K-fold cross validation
+ - 6.1 in book
+
+Explain formula (B0 +B1x1 B2x2…)
+Train by minimizing MSE
+Give MSE formula
+Confirm results/pick best model using K-fold CV
+Interpret results. “This data shows that we have an XX increase/decrease in [response var] when [predictor] has a unit increase”
+
+
+## Logistic Regression
+- Forward Stepwise Selection:
+ - Pick best subset to use for regression by comparing all models m_0, m_1, m_2…m_p using K-fold cross validation
+ - 6.1 in book
+
+Explain formula sigmoid(B0 +B1x1 B2x2…)
+Train by minimizing MSE
+Give MSE formula
+Confirm results/pick best model using K-fold CV
+Interpret results. “This data shows that we have an XX increase/decrease in [response var] when [predictor] has a unit increase”
+
+## Decision Tree
+- Only use for the categorical prediction
+- Explain DT creation process briefly (Recursive Binary Splitting) (create partitions in feature space to minimize overall average partition-wise Node purity)
+- Fit tree (overgrown)
+- Cost complexity pruning
+ - Make sure to try out different costs
+- Include explanation and equation for Gini Index (Node purity)
+- Plot DT
+
+### Make Tree
+```{r}
+library(tree)
+df.tree <- tree(df.train$tv ~ ., data = df.train)
+summary(tree)
+
+plot(df.tree)
+text(df.tree, pretty = 0)
+
+df.tree.pred <- predict(df.tree, df.test, type ="class")
+table(Predicted = df.tree.pred, Actual = df.test$tv)
+```
+
+### Prune Tree
+```{r}
+#TODO NAs introduced by coercion, why... Warnings suppressed for now
+cv.df.tree <- suppressWarnings(cv.tree(df.tree, FUN = prune.misclass))
+plot(cv.df.tree$size, cv.df.tree$dev, type = "b")
+```
+
+```{r}
+df.tree.pruned <- prune.misclass(df.tree, best = 5)
+summary(df.tree.pruned)
+
+plot(df.tree.pruned)
+text(df.tree.pruned, pretty = 0)
+```
+
+## Random Forest
+
+```{r}
+library(randomForest)
+
+df.rf <- randomForest(df.train$tv ~., data = df.train, importance = TRUE)
+df.rf
+```
+
+## Support Vector Machine
+
+```{r}
+
+```
