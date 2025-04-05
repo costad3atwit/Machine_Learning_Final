@@ -126,18 +126,19 @@ library(cluster)
 ```
 
 ```{r}
-par(mfrow = c(3,2))
+
 ```
 
 
 ```{r}
 #TODO 
 # Seems pretty broken but the calculations work at least
-pam_result <- plot(pam(gower_df, k=2, diss=TRUE), main = "Silhouetter Chart with 2 clusters", xlab = "", sub = "", cex = .9)
+pam_result <- pam(gower_df, k=2, diss=TRUE)
 ```
 
 ```{r}
-plot(pam(gower_df, k=2, diss=TRUE), main = "Silhouetter Chart with 2 clusters",
+par(mfrow = c(1,1))
+plot(pam_result, main = "Silhouetter Chart with 2 clusters",
 xlab = "", sub = "", cex = .9)
 ```
 
