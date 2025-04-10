@@ -10,6 +10,7 @@ jupyter:
     display_name: R
     name: ir
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
@@ -780,35 +781,66 @@ Our logistic regression analysis reveals important insights into what factors ar
 - Include explanation and equation for Gini Index (Node purity)
 - Plot DT
 
-### Make Tree
+## Decision Tree
+We will use two different Decision tree techniques when looking at our data. Additionally, we will only be using these trees to predict categorical values despite the fact that they can be used for both types of data. We will start with making a traditional Decision tree that we will prune back, and then use the Random Forest technique. There will all predict whether or not an entry has a TV.
+
+### Step 1: Create and test Tree
+
+We will create a single tree that makes its decisions on each split based on creating the most pure regions.
+
 ```{r}
 library(tree)
+set.seed(112)
 df.tree <- tree(df.train$tv ~ ., data = df.train)
 summary(df.tree)
 
 plot(df.tree)
 text(df.tree, pretty = 0)
+title(main = "TV Purchase Decision Tree - Unpruned")
+```
+### Step 2: Test tree error
 
+Next, we can test this tree to see what its error rate along with what it classified correctly.
+
+```{r}
 df.tree.pred <- predict(df.tree, df.test, type ="class")
 table(Predicted = df.tree.pred, Actual = df.test$tv)
+cat("Test Error Rate: ", mean(df.tree.pred != df.test$tv))
 ```
 
-### Prune Tree
+
+### Step 3: Calculate Cross Validation for Pruning 
+
+This shows us that the tree experiences the least error relative to its size when the tree size = 4. Even if there is a slight decrease in error as we include more decisions in the tree, the benefit will not be worth the computation cost. This is known as **Cost-Complexity-Pruning**
+
 ```{r}
-#TODO NAs introduced by coercion, why... Warnings suppressed for now
 cv.df.tree <- suppressWarnings(cv.tree(df.tree, FUN = prune.misclass))
-plot(cv.df.tree$size, cv.df.tree$dev, type = "b")
+plot(cv.df.tree$size, cv.df.tree$dev, type = "b", main = "Cross-Validataion",
+     xlab = "Tree Size", ylab = "Error")
 ```
 
+### Step 4: Prune and Finalize Tree
+
+Now, we can prune the tree to the size that was show to be optimal by our Cross-Validation. This is our final result.
+
 ```{r}
-df.tree.pruned <- prune.misclass(df.tree, best = 5)
+df.tree.pruned <- prune.misclass(df.tree, best = 4)
 summary(df.tree.pruned)
+
+df.tree.pruned.pred <- predict(df.tree.pruned, df.test, type ="class")
+table(Predicted = df.tree.pruned.pred, Actual = df.test$tv)
+cat("Test Error Rate: ", mean(df.tree.pruned.pred != df.test$tv))
 
 plot(df.tree.pruned)
 text(df.tree.pruned, pretty = 0)
+title(main = "TV Purchase Decision Tree - Final")
 ```
+This decision tree is superior to our initial one due to its shorter length. This is now an extremely simple and robust model that can be used to predict whether or not a TV is owned.
 
 ## Random Forest
+We will now create a large assortment of trees to predict the same variable using the Random Forest method. 
+
+Step 1: Create Model
 
 ```{r}
 library(randomForest)
@@ -816,6 +848,17 @@ library(randomForest)
 df.rf <- randomForest(df.train$tv ~., data = df.train, importance = TRUE)
 df.rf
 ```
+### Step 2: Calculate Test Error
+
+What is shown above is the error on the training data. Now we want to find the testing error.
+
+```{r}
+df.rf.pred <- predict(df.rf, newdata = df.test)
+table(Predicted = df.rf.pred, Actual = df.test$tv)
+cat("Test Error rate:", mean(df.rf.pred != df.test$tv))
+```
+Using this method, we can see a much lower error rate of 9.55% compared the 13.6% present in the single tree model. While the error is lower, there are downsides to this technique such as the lack of a tree for visualization and the significantly longer computation time.
+
 
 ## Support Vector Machine
 
