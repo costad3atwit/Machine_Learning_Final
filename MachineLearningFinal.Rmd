@@ -380,7 +380,7 @@ head(df.train)
 head(df.test)
 ```
 
-## Linear Regressiona
+## Linear Regression
 
 In this section, we'll develop a linear regression model to predict housing expenditures (`spend_housing`) based on various household characteristics. Linear regression models the relationship between a dependent variable and one or more independent variables by fitting a linear equation to the observed data.
 
@@ -423,10 +423,10 @@ null_mse_train <- mean(residuals(null_model)^2)
 cat("Null model training MSE:", null_mse_train, "\n")
 
 # Forward stepwise selection
-forward_selection <- step(lm(spend_housing ~ 1, data = df.train), 
+forward_selection <- suppressWarnings(step(lm(spend_housing ~ 1, data = df.train), 
                          direction = "forward", 
                          scope = formula_all, 
-                         trace = FALSE)
+                         trace = FALSE))
 
 # Display the selected variables
 cat("Variables selected by forward selection:\n")
