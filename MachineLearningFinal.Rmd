@@ -118,6 +118,82 @@ str(df)
 ```{r}
 head(df)
 ```
+### FAMD Testing
+
+```{r}
+# Load required packages
+library(FactoMineR)
+library(factoextra)
+
+# Ensure row names are unique before any processing
+#rownames(df) <- paste0("row_", 1:nrow(df))
+
+df_famd <- df
+
+# Perform the FAMD analysis with error handling
+res.famd <- FAMD(df_famd, graph = FALSE, ncp = 5)
+
+# Scree plot should work regardless of row names
+print("Generating scree plot...")
+scree_plot <- fviz_screeplot(res.famd)
+print(scree_plot)
+
+# Try visualization with row names explicitly set
+print("Generating individual plot...")
+
+# Extract the individual coordinates
+ind_coords <- as.data.frame(res.famd$ind$coord)
+
+# Make sure the row names are properly set
+rownames(ind_coords) <- paste0("row_", 1:nrow(ind_coords))
+
+# Manual plotting as an alternative to fviz_famd_ind
+library(ggplot2)
+
+# Get the cos2 values for coloring
+cos2 <- rowSums(res.famd$ind$cos2[,1:2])
+
+# Create a data frame for plotting
+plot_df <- data.frame(
+Dim1 = ind_coords[,1],
+  Dim2 = ind_coords[,2],
+  cos2 = cos2
+)
+
+# Create the plot
+ind_plot <- ggplot(plot_df, aes(x = Dim1, y = Dim2, color = cos2)) +
+  geom_point(size = 3) +
+  scale_color_gradient2(low = "#00AFBB", mid = "#E7B800", high = "#FC4E07",
+                       midpoint = median(cos2)) +
+  theme_minimal() +
+  labs(title = "Individuals - FAMD",
+       x = paste0("Dim 1 (", round(res.famd$eig[1,2], 1), "%)"),
+       y = paste0("Dim 2 (", round(res.famd$eig[2,2], 1), "%)"))
+
+print(ind_plot)
+
+# Try the variable plot
+print("Generating variable plot...")
+var_plot <- fviz_famd_var(res.famd, repel = TRUE)
+print(var_plot)
+
+  
+# Display the structure of your data for debugging
+print("Structure of the first few rows of your data:")
+print(str(head(df_famd)))
+```
+Scree Plot
+- represents how much variance explained in how many dimensions. ~30% in 2 is not very good
+- not sure how to apply this yet
+
+Individuals
+- hotter means better represented in those dimensions
+
+Variables
+- kinda shows how variables are grouped i think
+- it looks like theres some patterns of what the variables are and how well one thing explains them
+
+
 
 ## Unsupervised Data Analysis: Clustering
 
