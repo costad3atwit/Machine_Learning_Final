@@ -9,7 +9,9 @@ jupyter:
   kernelspec:
     display_name: R
     name: ir
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 
@@ -71,8 +73,7 @@ library(StatMatch)
 
 
 ```{r}
-#TODO
-# Seems to work since it only correctly runs once
+#Rename confusing variables
 
 df <- df %>% rename(
   spend_food = exp_01,
@@ -88,14 +89,30 @@ df <- df %>% rename(
   spend_catering = exp_11,
   spend_misc = exp_12
 )
+
+df$X <- NULL
 ```
 
 
 ```{r}
-#TODO
-# NEEDED FOR CLASSIFICATION PROBLEMS
-str(df$tv)
 df$tv <- as.factor(df$tv)
+df$urbrur <- as.factor(df$urbrur)
+df$statocc <- as.factor(df$statocc)
+df$floor <- as.factor(df$floor)
+df$walls <- as.factor(df$walls)
+df$roof <- as.factor(df$roof)
+df$electricity <- as.factor(df$electricity)
+df$cook_fuel <- as.factor(df$cook_fuel)
+df$phone <- as.factor(df$phone)
+df$cell <- as.factor(df$cell)
+df$car <- as.factor(df$car)
+df$bicycle <- as.factor(df$bicycle)
+df$motorcycle <- as.factor(df$motorcycle)
+df$refrigerator <- as.factor(df$refrigerator)
+df$radio <- as.factor(df$radio)
+df$bank <- as.factor(df$bank)
+
+str(df)
 ```
 
 ```{r}
@@ -118,35 +135,78 @@ gower_df = gower.dist(df)
 ```
 
 ```{r}
-#gower_df
-```
-
-```{r}
 library(cluster)
 ```
 
-```{r}
+We'll use the Partitions Around Mediods (PAM) Method of clustering to look for best clustering and subsequently the most impactful features. We'll use those features to decide what to predict.
 
+```{r}
+pam_result_2 <- pam(gower_df, k=2, diss=TRUE)
+sil_2 = silhouette(pam_result_2)
+pam_result_3 <- pam(gower_df, k=3, diss=TRUE)
+sil_3 = silhouette(pam_result_3)
+pam_result_4 <- pam(gower_df, k=4, diss=TRUE)
+sil_4 = silhouette(pam_result_4)
+pam_result_5 <- pam(gower_df, k=5, diss=TRUE)
+sil_5 = silhouette(pam_result_5)
+pam_result_6 <- pam(gower_df, k=6, diss=TRUE)
+sil_6 = silhouette(pam_result_6)
+pam_result_7 <- pam(gower_df, k=7, diss=TRUE)
+sil_7 = silhouette(pam_result_7)
+```
+
+```{r}
+par(mfrow = c(1,2))
+plot(sil_2, main = "Silhouette Chart with 2 clusters",
+     xlab = "", sub = "", cex = 0.9, 
+     col = c("red", "blue"),  # Add colors for different clusters
+     border = NA,             # Remove borders around individual lines
+     do.n.k = TRUE,           # Show number of observations and clusters
+     do.clus.stat = TRUE)     # Show cluster statistics
+plot(sil_3, main = "Silhouette Chart with 3 clusters",
+     xlab = "", sub = "", cex = 0.9, 
+     col = c("red", "blue","green"),  # Add colors for different clusters
+     border = NA,             # Remove borders around individual lines
+     do.n.k = TRUE,           # Show number of observations and clusters
+     do.clus.stat = TRUE)     # Show cluster statistics
+```
+```{r}
+par(mfrow = c(1,2))
+plot(sil_4, main = "Silhouette Chart with 4 clusters",
+     xlab = "", sub = "", cex = 0.9, 
+     col = c("red", "blue","green", "purple"),  # Add colors for different clusters
+     border = NA,             # Remove borders around individual lines
+     do.n.k = TRUE,           # Show number of observations and clusters
+     do.clus.stat = TRUE)     # Show cluster statistics
+plot(sil_5, main = "Silhouette Chart with 5 clusters",
+     xlab = "", sub = "", cex = 0.9, 
+     col = c("red", "blue","green", "purple", "cyan"),  # Add colors for different clusters
+     border = NA,             # Remove borders around individual lines
+     do.n.k = TRUE,           # Show number of observations and clusters
+     do.clus.stat = TRUE)     # Show cluster statistics
+```
+
+```{r}
+par(mfrow = c(1,2))
+plot(sil_6, main = "Silhouette Chart with 6 clusters",
+     xlab = "", sub = "", cex = 0.9, 
+     col = c("red", "blue","green", "purple", "cyan", "black"),  # Add colors for different clusters
+     border = NA,             # Remove borders around individual lines
+     do.n.k = TRUE,           # Show number of observations and clusters
+     do.clus.stat = TRUE)     # Show cluster statistics
+plot(sil_7, main = "Silhouette Chart with 7 clusters",
+     xlab = "", sub = "", cex = 0.9, 
+     col = c("red", "blue","green", "purple", "cyan", "black", "brown"),  # Add colors for different clusters
+     border = NA,             # Remove borders around individual lines
+     do.n.k = TRUE,           # Show number of observations and clusters
+     do.clus.stat = TRUE)     # Show cluster statistics
 ```
 
 
-```{r}
-#TODO 
-# Seems pretty broken but the calculations work at least
-pam_result <- pam(gower_df, k=2, diss=TRUE)
-```
+It looks like our best clustering occured with only 2 clusters because the average silhouette width was the highest among each cluster there. We'll continue using the 2 cluster model.
 
 ```{r}
-par(mfrow = c(1,1))
-plot(pam_result, main = "Silhouetter Chart with 2 clusters",
-xlab = "", sub = "", cex = .9)
-```
-
-
-```{r}
-#TODO I dont know what is wrong with this or if you still want it but im leaving it
-# Add cluster assignments to your original dataframe
-df$cluster <- pam_result$clustering
+df$cluster <- pam_result_2$clustering
 
 # Create empty lists to store results
 numeric_results <- list()
@@ -222,9 +282,15 @@ print("Top 10 Categorical Variables:")
 print(head(categorical_df, 10))
 ```
 
-Based on the top ten most meaningful features derived above through clustering, we've decided to move forward with our supervised learning techniques predicting on **spend_housing** *(spending on housing AND utilities)*, **and tv** *(television)*
+Based on the top ten most meaningful features derived above through clustering, we've decided to move forward with our supervised learning techniques predicting on **spend_housing** *(spending on housing AND utilities)*, **and tv** *(television)* because their effect size is high and the findings may be interesting
 
-## Subsetting the Data
+```{r}
+#Before we move on we need to remove the cluster variable from the dataframe so we don't skew our other models
+df$cluster = NULL
+
+```
+
+## Subsetting the Data for Regression
 
 We'll need to set aside some test data before we work with any supervised learning techniques so that we can perform accurate validation
 
@@ -240,15 +306,187 @@ head(df.test)
 
 ## Linear Regression
 
-- Forward Stepwise Selection:
- - Pick best subset to use for lin regression by comparing all models m_0, m_1, m_2…m_p using K-fold cross validation
- - 6.1 in book
+In this section, we'll develop a linear regression model to predict housing expenditures (`spend_housing`) based on various household characteristics. Linear regression models the relationship between a dependent variable and one or more independent variables by fitting a linear equation to the observed data.
 
-Explain formula (B0 +B1x1 B2x2…)
-Train by minimizing MSE
-Give MSE formula
-Confirm results/pick best model using K-fold CV
-Interpret results. “This data shows that we have an XX increase/decrease in [response var] when [predictor] has a unit increase”
+The general form of the linear regression equation is:
+
+$$Y = \beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_pX_p + \epsilon$$
+
+Where:
+- $Y$ is the response variable (spend_housing)
+- $\beta_0$ is the intercept
+- $\beta_1, \beta_2, ..., \beta_p$ are the coefficients
+- $X_1, X_2, ..., X_p$ are the predictor variables
+- $\epsilon$ is the error term
+
+The training process involves minimizing the Mean Squared Error (MSE), which is calculated as:
+
+$$MSE = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+
+Where $y_i$ is the actual value and $\hat{y}_i$ is the predicted value.
+
+### Feature Selection using Forward Stepwise Selection
+
+First, we'll apply forward stepwise selection to identify the most important predictors for our model:
+
+```{r}
+# Load necessary libraries for linear regression
+library(leaps)
+library(caret)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Create a formula excluding the response variable
+predictors <- setdiff(names(df), c("spend_housing", "cluster"))
+formula_all <- as.formula(paste("spend_housing ~", paste(predictors, collapse = " + ")))
+
+# Null model (for comparison)
+null_model <- lm(spend_housing ~ 1, data = df.train)
+null_mse_train <- mean(residuals(null_model)^2)
+cat("Null model training MSE:", null_mse_train, "\n")
+
+# Forward stepwise selection
+forward_selection <- step(lm(spend_housing ~ 1, data = df.train), 
+                         direction = "forward", 
+                         scope = formula_all, 
+                         trace = FALSE)
+
+# Display the selected variables
+cat("Variables selected by forward selection:\n")
+print(formula(forward_selection))
+```
+
+### Fitting the Linear Model with Selected Features
+
+Now, we'll fit the linear regression model using the features selected by forward stepwise selection:
+
+```{r}
+# Fit the linear model with selected predictors
+model_forward <- lm(formula(forward_selection), data = df.train)
+summary_forward <- summary(model_forward)
+
+# Display model summary and key statistics
+print(summary_forward)
+
+# Calculate training MSE
+mse_train <- mean(residuals(model_forward)^2)
+cat("Training MSE:", mse_train, "\n")
+cat("R-squared:", summary_forward$r.squared, "\n")
+cat("Adjusted R-squared:", summary_forward$adj.r.squared, "\n")
+```
+
+### Cross-Validation for Model Evaluation
+
+We'll use K-fold cross-validation to evaluate our model and compare it with the null model:
+
+```{r}
+# Function to calculate MSE
+mse <- function(actual, predicted) {
+  mean((actual - predicted)^2)
+}
+
+# Set up 10-fold cross-validation
+k <- 10
+set.seed(456)
+folds <- createFolds(df.train$spend_housing, k = k, list = TRUE, returnTrain = FALSE)
+
+# Function to evaluate models using k-fold CV
+cv_evaluation <- function(model_formula) {
+  cv_results <- data.frame(fold = integer(), train_mse = numeric(), test_mse = numeric())
+  
+  for (i in 1:k) {
+    fold_test <- df.train[folds[[i]], ]
+    fold_train <- df.train[-folds[[i]], ]
+    
+    model <- lm(model_formula, data = fold_train)
+    
+    # Predictions
+    train_pred <- predict(model, fold_train)
+    test_pred <- predict(model, fold_test)
+    
+    # Calculate MSE
+    train_mse <- mse(fold_train$spend_housing, train_pred)
+    test_mse <- mse(fold_test$spend_housing, test_pred)
+    
+    cv_results <- rbind(cv_results, data.frame(fold = i, train_mse = train_mse, test_mse = test_mse))
+  }
+  
+  return(cv_results)
+}
+
+# Evaluate models:
+# 1. Null model (just intercept)
+null_model_formula <- as.formula("spend_housing ~ 1")
+null_cv_results <- cv_evaluation(null_model_formula)
+
+# 2. Forward selection model
+forward_cv_results <- cv_evaluation(formula(forward_selection))
+
+# Calculate average MSE across folds
+null_avg_mse <- mean(null_cv_results$test_mse)
+forward_avg_mse <- mean(forward_cv_results$test_mse)
+
+cat("Null Model - Average CV Test MSE:", null_avg_mse, "\n")
+cat("Forward Selection Model - Average CV Test MSE:", forward_avg_mse, "\n")
+cat("Improvement (% reduction in MSE):", (null_avg_mse - forward_avg_mse) / null_avg_mse * 100, "%\n")
+```
+
+### Final Model Evaluation on Test Set
+
+Now, we'll evaluate our model on the held-out test set to assess its predictive performance:
+
+```{r}
+# Make predictions on the test set
+predictions <- predict(model_forward, df.test)
+
+# Calculate test MSE
+test_mse <- mse(df.test$spend_housing, predictions)
+cat("Test MSE:", test_mse, "\n")
+
+# Calculate null model test MSE for comparison
+null_pred <- rep(mean(df.train$spend_housing), nrow(df.test))
+null_test_mse <- mse(df.test$spend_housing, null_pred)
+cat("Null Model Test MSE:", null_test_mse, "\n")
+
+# Calculate R-squared on test data
+tss <- sum((df.test$spend_housing - mean(df.test$spend_housing))^2)
+rss <- sum((df.test$spend_housing - predictions)^2)
+test_r_squared <- 1 - (rss/tss)
+cat("Test R-squared:", test_r_squared, "\n")
+
+# Visualize actual vs predicted values
+plot(df.test$spend_housing, predictions, 
+     main = "Actual vs. Predicted Housing Expenditure",
+     xlab = "Actual", ylab = "Predicted",
+     pch = 16, col = "blue", cex = 0.8)
+abline(0, 1, col = "red", lwd = 2)
+```
+
+### Interpretation of Results
+
+The multiple regression model reveals several significant predictors of housing expenditure. 
+
+```{r}
+# Display top 5 most significant predictors (t-value)
+coef_table <- as.data.frame(summary_forward$coefficients)
+coef_table$variable <- rownames(coef_table)
+coef_table <- coef_table[order(-abs(coef_table$`t value`)), ]
+cat("Top 5 most significant predictors of housing expenditure:\n")
+print(head(coef_table[, c("variable", "Estimate", "t value", "Pr(>|t|)")], 5))
+
+```
+
+The multiple regression reveals insights into what drives housing expenditure:
+
+1. **Model Performance**: The model explains approximately 93.1 of the variance in housing expenditure, which is substantially better than the null model which in this case was near 0%.
+
+2. **Key Predictors**: The most significant predictors include spend_communication, spend_misc, rooms, wallsBrick, and spend_catering. For example, each additional dollar spent on communication is associated with an increase of $1.302 in housing expenditure, holding all other variables constant.
+
+3. **Validation**: Cross-validation confirms the model is robust, with consistent performance across different subsets of the data.
+
+4. **Prediction Accuracy**: The test MSE of 395058.4 indicates our model can predict housing expenditure with reasonable accuracy (Null Model Test MSE: 5440908), with a 92.105% improvement over the null model.
+This improvement was calculated as $\text{Percentage Improvement}=( \frac{5004201−395058.4}{5004201})*100 ≈ 92.105%$
 
 
 ## Logistic Regression
@@ -275,7 +513,7 @@ Interpret results. “This data shows that we have an XX increase/decrease in [r
 ```{r}
 library(tree)
 df.tree <- tree(df.train$tv ~ ., data = df.train)
-summary(tree)
+summary(df.tree)
 
 plot(df.tree)
 text(df.tree, pretty = 0)
