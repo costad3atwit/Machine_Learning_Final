@@ -10,7 +10,8 @@ jupyter:
     display_name: R
     name: ir
 output:
-  pdf_document: default
+  pdf_document:
+    latex_engine: xelatex
   html_document:
     df_print: paged
 ---
@@ -864,21 +865,13 @@ Using this method, we can see a much lower error rate of 9.55% compared the 13.6
 
 In this section, we'll implement a Support Vector Machine (SVM) model to predict television ownership (`tv` = "Yes" or "No"). SVMs find the optimal hyperplane that creates the maximum margin between classes in the feature space.
 
-The SVM optimization problem can be represented as:
+SVM is ultimately an optimization problem to maximize the margin between points of different classes. This is achieved by adjusting factors such as the cost parameter $C$ which controls the trade-off between margin width and misclassification, and $\gamma$ which determines how far the influence of a single training example reaches, affecting the curvature of the decision boundary (only used in non-linear kernels).
 
-$$\min_{\beta, \beta_0} \frac{1}{2}||\beta||^2 + C\sum_{i=1}^{n}\xi_i$$
-
-Subject to: $y_i(\beta^Tx_i + \beta_0) \geq 1 - \xi_i$ and $\xi_i \geq 0$ for all $i$.
-
-Where:
-- $\beta$ and $\beta_0$ define the hyperplane
-- $C$ is the cost parameter that controls the trade-off between margin width and misclassification
-- $\xi_i$ are slack variables that allow for misclassification
-
-### Loading Required Library
+### (Re)Loading Required Libraries
 
 ```{r}
 library(e1071)
+library(caret)
 ```
 
 ### Initial Model with Default Parameters
@@ -886,14 +879,18 @@ library(e1071)
 First, we'll fit an SVM model with default parameters:
 
 ```{r}
-library(caret)
+
 # Set seed for reproducibility
 set.seed(123)
 
 #We use a much smaller subset of data so that CV tuning will run in reasonable time. The support vectors control the entire model so this doesn't introduce bias as much as in other models
-sample = sample(nrow(df), nrow(df) * .60)
-df.train.svm <- df[sample,]
-df.test.svm <- df[-sample,]
+#sample = sample(nrow(df), nrow(df) * .10)
+#df.train.svm <- df[sample,]
+#df.test.svm <- df[-sample,]
+
+# Commented the section above for final knitting so all the models are trained on the same data
+df.train.svm = df.train
+df.test.svm = df.test
 
 # Fit SVM with default (untuned) parameters
 svm_default <- svm(tv ~ ., data = df.train.svm, 
@@ -927,11 +924,12 @@ To ensure our model isn't overfit or underfit, we'll tune two key parameters:
    - Higher gamma: More complex model, risk of overfitting
    - Lower gamma: Simpler model, risk of underfitting
 
-We'll use a grid search with cross-validation to find optimal values:
+We'll use cross-validation based tuning to find optimal values:
 
 ```{r}
-# Perform 5-fold cross-validation for parameter tuning
-# RUNS FOR VERY VERY LONG. FIND WORKAROUND OR BETTER - Used smaller training set
+# Depending on the size of the 
+
+# Perform 10-fold (default for tune()) cross-validation for cost and gamma tuning
 set.seed(456)
 svm_tune <- tune(
   svm,
@@ -950,11 +948,9 @@ cat("Best performance during tuning (error rate):", svm_tune$best.performance, "
 plot(svm_tune)
 ```
 
-
-
 ### Training Final SVM Model with Optimal Parameters
 
-Now we'll train our final model using the near optimal parameters identified through tuning:
+Now we'll train our final model using the optimal parameters identified through tuning and evaluate it's performance on held out data to compare with other models:
 
 ```{r}
 # Extract best parameters
