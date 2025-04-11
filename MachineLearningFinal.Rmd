@@ -862,6 +862,236 @@ Using this method, we can see a much lower error rate of 9.55% compared the 13.6
 
 ## Support Vector Machine
 
-```{r}
+In this section, we'll implement a Support Vector Machine (SVM) model to predict television ownership (`tv` = "Yes" or "No"). SVMs find the optimal hyperplane that creates the maximum margin between classes in the feature space.
 
+The SVM optimization problem can be represented as:
+
+$$\min_{\beta, \beta_0} \frac{1}{2}||\beta||^2 + C\sum_{i=1}^{n}\xi_i$$
+
+Subject to: $y_i(\beta^Tx_i + \beta_0) \geq 1 - \xi_i$ and $\xi_i \geq 0$ for all $i$.
+
+Where:
+- $\beta$ and $\beta_0$ define the hyperplane
+- $C$ is the cost parameter that controls the trade-off between margin width and misclassification
+- $\xi_i$ are slack variables that allow for misclassification
+
+### Loading Required Library
+
+```{r}
+library(e1071)
 ```
+
+### Initial Model with Default Parameters
+
+First, we'll fit an SVM model with default parameters:
+
+```{r}
+library(caret)
+# Set seed for reproducibility
+set.seed(123)
+
+#We use a much smaller subset of data so that CV tuning will run in reasonable time. The support vectors control the entire model so this doesn't introduce bias as much as in other models
+sample = sample(nrow(df), nrow(df) * .60)
+df.train.svm <- df[sample,]
+df.test.svm <- df[-sample,]
+
+# Fit SVM with default (untuned) parameters
+svm_default <- svm(tv ~ ., data = df.train.svm, 
+                  kernel = "radial", 
+                  probability = TRUE)
+
+print(summary(svm_default))
+
+# Make predictions on the test set
+svm_default_pred <- predict(svm_default, df.test.svm)
+
+# Evaluate model performance
+conf_matrix_default <- confusionMatrix(svm_default_pred, df.test.svm$tv)
+print(conf_matrix_default)
+
+# Calculate error rate
+error_rate_default <- 1 - conf_matrix_default$overall['Accuracy']
+cat("Error rate with default parameters:", error_rate_default, "\n")
+```
+
+
+### Tuning SVM Parameters to Avoid Overfitting/Underfitting
+
+To ensure our model isn't overfit or underfit, we'll tune two key parameters:
+
+1. **Cost parameter (C)**: Controls the trade-off between having a smooth decision boundary and classifying training points correctly. 
+   - Higher values of C: More complex model, risk of overfitting
+   - Lower values of C: Simpler model, risk of underfitting
+
+2. **Gamma parameter**: Controls the influence radius of training examples (for radial kernel).
+   - Higher gamma: More complex model, risk of overfitting
+   - Lower gamma: Simpler model, risk of underfitting
+
+We'll use a grid search with cross-validation to find optimal values:
+
+```{r}
+# Perform 5-fold cross-validation for parameter tuning
+# RUNS FOR VERY VERY LONG. FIND WORKAROUND OR BETTER - Used smaller training set
+set.seed(456)
+svm_tune <- tune(
+  svm,
+  tv ~.,
+  data = df.train.svm,
+  kernel = "radial",
+  ranges = list(cost = c(5,10,50,100,1000), gamma = c(0.001,0.1)),
+  
+)
+
+# Display best parameters
+print(svm_tune$best.parameters)
+cat("Best performance during tuning (error rate):", svm_tune$best.performance, "\n")
+
+# Plot tuning results
+plot(svm_tune)
+```
+
+
+
+### Training Final SVM Model with Optimal Parameters
+
+Now we'll train our final model using the near optimal parameters identified through tuning:
+
+```{r}
+# Extract best parameters
+best_cost <- svm_tune$best.parameters$cost
+best_gamma <- svm_tune$best.parameters$gamma
+
+# Train final model with best parameters
+svm_final <- svm(
+  tv ~ .,
+  data = df.train.svm,
+  kernel = "radial",
+  cost = best_cost,
+  gamma = best_gamma,
+  probability = TRUE
+)
+
+# Make predictions on the test set
+svm_pred <- predict(svm_final, df.test.svm)
+
+# Evaluate final model performance
+conf_matrix_final <- confusionMatrix(svm_pred, df.test.svm$tv)
+print(conf_matrix_final)
+
+# Calculate and compare error rates
+cat("Cost value:", best_cost , "\n")
+cat("Gamma value:", best_gamma , "\n")
+error_rate_final <- 1 - conf_matrix_final$overall['Accuracy']
+cat("Error rate with tuned parameters:", error_rate_final, "\n")
+cat("Error rate with default parameters:", error_rate_default, "\n")
+cat("Improvement:", (error_rate_default - error_rate_final) * 100, "percentage points\n")
+```
+
+### Learning Curve Analysis to Confirm Model Fit
+
+To ensure our model is neither overfit nor underfit, we'll examine how performance changes with training data size:
+
+```{r}
+# Creating a learning curve
+train_sizes <- seq(0.1, 1, by = 0.1)
+train_errors <- numeric(length(train_sizes))
+test_errors <- numeric(length(train_sizes))
+
+set.seed(101)
+for (i in 1:length(train_sizes)) {
+  # Sample data
+  n_train <- floor(train_sizes[i] * nrow(df.train.svm))
+  train_indices <- sample(1:nrow(df.train.svm), n_train)
+  train_subset <- df.train.svm[train_indices, ]
+  
+  # Train model on subset
+  svm_subset <- svm(
+    tv ~ .,
+    data = train_subset,
+    kernel = "radial",
+    cost = best_cost,
+    gamma = best_gamma
+  )
+  
+  # Evaluate on training and test sets
+  train_pred <- predict(svm_subset, train_subset)
+  test_pred <- predict(svm_subset, df.test.svm)
+  
+  # Calculate error rates
+  train_errors[i] <- 1 - mean(train_pred == train_subset$tv)
+  test_errors[i] <- 1 - mean(test_pred == df.test.svm$tv)
+}
+
+# Plot learning curve
+plot(train_sizes, train_errors, type = "b", col = "blue", 
+     ylim = c(0, max(c(train_errors, test_errors)) * 1.1),
+     xlab = "Training Data Proportion", ylab = "Error Rate",
+     main = "Learning Curve for SVM Model")
+lines(train_sizes, test_errors, type = "b", col = "red")
+legend("topright", legend = c("Training Error", "Test Error"), 
+       col = c("blue", "red"), lty = 1, pch = 1)
+```
+
+### ROC Curve and AUC
+
+Let's evaluate the model's discriminative ability using ROC and AUC:
+
+```{r}
+# Get probability predictions
+svm_probs <- predict(svm_final, df.test.svm, probability = TRUE)
+svm_probs <- attr(svm_probs, "probabilities")[, "Yes"]
+
+# Generate ROC curve
+library(pROC)
+roc_svm <- roc(df.test.svm$tv, svm_probs)
+auc_svm <- auc(roc_svm)
+
+# Plot ROC curve
+plot(roc_svm, main = paste("ROC Curve for SVM (AUC =", round(auc_svm, 3), ")"),
+     col = "blue", lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "red")
+```
+
+### Comparison with Other Models
+
+Finally, let's compare the SVM's performance with our previous models:
+
+```{r}
+# Create comparison table for all models (accuracy or error rate)
+model_comparison <- data.frame(
+  Model = c("Logistic Regression", "Decision Tree", "RandomForest", "SVM"),
+  Accuracy = c(
+    conf_matrix_test$overall["Accuracy"],  # From Logistic Regression section
+    mean(df.tree.pred == df.test$tv),     # From Decision Tree section
+    mean(predict(df.rf, df.test) == df.test$tv),  # From Random Forest section
+    conf_matrix_final$overall["Accuracy"]  # SVM
+  )
+)
+
+# Sort by accuracy
+model_comparison <- model_comparison[order(-model_comparison$Accuracy), ]
+print(model_comparison)
+
+# Visualize model comparison
+barplot(model_comparison$Accuracy, names.arg = model_comparison$Model, 
+        main = "Model Accuracy Comparison", col = "steelblue",
+        ylim = c(0.8, 1), las = 2)
+abline(h = seq(0, 1, by = 0.1), col = "gray", lty = 2)
+```
+
+### Interpretation of SVM Results
+
+The Support Vector Machine model for predicting television ownership has shown strong performance:
+
+1. **Model Tuning**: We tuned the cost (C) and gamma parameters through grid search and 5-fold cross-validation. The optimal parameters were found to be cost = 5 and gamma = 0.1, striking a balance between model complexity and generalization ability.
+
+2. **Performance**: The tuned SVM achieved an accuracy of 90.65% on the test set, which is the best out of all the other models (logistic regression, decision tree, and random forest), barely beating out random forest. However given the computationally expensive nature of fitting an SVM model it may be worth considering use of the RF model over the SVM in this situation (only 0.2% accuracy increase from RF).
+
+3. **Avoiding Overfitting/Underfitting**: 
+   - The learning curve analysis shows that as we increase training data size, the training error increases and test error decreases, indicating the hyperparameters are well tuned because the model doesn't become overfit (training error decreasing and test error increasing) when we include larger portions of the data.
+   - The gap between training and test error is roughly 7-8% (and shrinks with more data), suggesting the model is neither overfit nor underfit.
+   - Parameter tuning via cross-validation further ensured optimal regularization.
+
+4. **Discriminative Power**: The AUC of 0.951 demonstrates the model's excellent ability to distinguish between households with and without TVs.
+
+Overall, the SVM model provides a robust prediction of television ownership, balancing complexity with generalization through careful parameter tuning. Its performance compared to the other tested models in this project makes it one of the better models for predicting TV ownership.
