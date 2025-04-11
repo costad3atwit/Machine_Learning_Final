@@ -16,6 +16,15 @@ output:
     df_print: paged
 ---
 
+```{r setup, include=FALSE, cache=FALSE}
+    knitr::opts_chunk$set(
+      echo = TRUE,        # Display code in the output
+      warning = FALSE,    # Suppress warnings
+      message = FALSE,    # Suppress messages
+      results = "hide"    #Exclude  results unless specified
+    )
+
+```
 
 # Machine Learning Final Project
 *Authors: David Costa, Lucas Gaspar*
@@ -117,12 +126,12 @@ df$bank <- as.factor(df$bank)
 str(df)
 ```
 
-```{r}
+```{r, results = "markup"}
 head(df)
 ```
 ### FAMD Testing
 
-```{r}
+```{r, results = "markup"}
 # Load required packages
 library(FactoMineR)
 library(factoextra)
@@ -233,7 +242,7 @@ pam_result_7 <- pam(gower_df, k=7, diss=TRUE)
 sil_7 = silhouette(pam_result_7)
 ```
 
-```{r}
+```{r, results = "markup"}
 par(mfrow = c(1,2))
 plot(sil_2, main = "Silhouette Chart with 2 clusters",
      xlab = "", sub = "", cex = 0.9, 
@@ -248,7 +257,7 @@ plot(sil_3, main = "Silhouette Chart with 3 clusters",
      do.n.k = TRUE,           # Show number of observations and clusters
      do.clus.stat = TRUE)     # Show cluster statistics
 ```
-```{r}
+```{r, results = "markup"}
 par(mfrow = c(1,2))
 plot(sil_4, main = "Silhouette Chart with 4 clusters",
      xlab = "", sub = "", cex = 0.9, 
@@ -264,7 +273,7 @@ plot(sil_5, main = "Silhouette Chart with 5 clusters",
      do.clus.stat = TRUE)     # Show cluster statistics
 ```
 
-```{r}
+```{r, results = "markup"}
 par(mfrow = c(1,2))
 plot(sil_6, main = "Silhouette Chart with 6 clusters",
      xlab = "", sub = "", cex = 0.9, 
@@ -283,7 +292,7 @@ plot(sil_7, main = "Silhouette Chart with 7 clusters",
 
 It looks like our best clustering occured with only 2 clusters because the average silhouette width was the highest among each cluster there. We'll continue using the 2 cluster model.
 
-```{r}
+```{r, results = "markup"}
 df$cluster <- pam_result_2$clustering
 
 # Create empty lists to store results
@@ -376,10 +385,6 @@ We'll need to set aside some test data before we work with any supervised learni
 sample = sample(nrow(df), nrow(df) * .75)
 df.train <- df[sample, ]
 df.test <- df[-sample, ]
-
-head(df.train)
-
-head(df.test)
 ```
 
 ## Linear Regression
@@ -407,7 +412,7 @@ Where $y_i$ is the actual value and $\hat{y}_i$ is the predicted value.
 
 First, we'll apply forward stepwise selection to identify the most important predictors for our model:
 
-```{r}
+```{r, results = "markup"}
 # Load necessary libraries for linear regression
 library(leaps)
 library(caret)
@@ -439,7 +444,7 @@ print(formula(forward_selection))
 
 Now, we'll fit the linear regression model using the features selected by forward stepwise selection:
 
-```{r}
+```{r, results = "markup"}
 # Fit the linear model with selected predictors
 model_forward <- lm(formula(forward_selection), data = df.train)
 summary_forward <- summary(model_forward)
@@ -458,7 +463,7 @@ cat("Adjusted R-squared:", summary_forward$adj.r.squared, "\n")
 
 We'll use K-fold cross-validation to evaluate our model and compare it with the null model:
 
-```{r}
+```{r, results = "markup"}
 # Function to calculate MSE
 mse <- function(actual, predicted) {
   mean((actual - predicted)^2)
@@ -514,7 +519,7 @@ cat("Improvement (% reduction in MSE):", (null_avg_mse - forward_avg_mse) / null
 
 Now, we'll evaluate our model on the held-out test set to assess its predictive performance:
 
-```{r}
+```{r, results = "markup"}
 # Make predictions on the test set
 predictions <- predict(model_forward, df.test)
 
@@ -545,7 +550,7 @@ abline(0, 1, col = "red", lwd = 2)
 
 The multiple regression model reveals several significant predictors of housing expenditure. 
 
-```{r}
+```{r, results = "markup"}
 # Display top 5 most significant predictors (t-value)
 coef_table <- as.data.frame(summary_forward$coefficients)
 coef_table$variable <- rownames(coef_table)
@@ -585,9 +590,7 @@ Where:
 First, we'll apply forward stepwise selection to identify the most important predictors:
 
 
-```{r}
-# Set seed for reproducibility
-set.seed(789)
+```{r, results = "markup"}
 
 # Create a formula excluding the response variable
 predictors <- setdiff(names(df), c("tv"))
@@ -599,7 +602,6 @@ summary(null_model_log)
 
 # Forward stepwise selection for logistic regression
 
-# WARNINGS ARE SUPPRESSED RIGHT NOW. EXAMINE ISSUE FURTHER
 forward_selection_log <- step(glm(tv ~ 1, data = df.train, family = "binomial"), 
                              direction = "forward", 
                              scope = formula_all, 
@@ -615,7 +617,7 @@ print(formula(forward_selection_log))
 
 Now, we'll fit the logistic regression model using the features selected by forward stepwise selection:
 
-```{r}
+```{r, results = "markup"}
 # Fit the logistic model with selected predictors
 model_forward_log <- glm(formula(forward_selection_log), data = df.train, family = "binomial")
 summary_forward_log <- summary(model_forward_log)
@@ -644,7 +646,7 @@ cat("Residual Deviance:", summary_forward_log$deviance,
 
 We'll use K-fold cross-validation to evaluate our model and compare it with the null model:
 
-```{r}
+```{r, results = "markup"}
 # Set up 10-fold cross-validation
 k <- 10
 set.seed(101)
@@ -720,7 +722,7 @@ cat("\nImprovement (accuracy):",
 
 Now, we'll evaluate our model on the held-out test set to assess its predictive performance:
 
-```{r}
+```{r, results = "markup"}
 # Make predictions on the test set
 prob_test <- predict(model_forward_log, df.test, type = "response")
 pred_test <- ifelse(prob_test > 0.5, "Yes", "No")
@@ -752,7 +754,7 @@ cat("Forward Model Test Accuracy:", conf_matrix_test$overall["Accuracy"], "\n")
 
 The logistic regression model reveals several significant predictors of television ownership:
 
-```{r}
+```{r, results = "markup"}
 # Identify the most influential predictors (by absolute z-value)
 coef_summary <- as.data.frame(summary_forward_log$coefficients)
 coef_summary$Variable <- rownames(coef_summary)
@@ -789,7 +791,7 @@ We will use two different Decision tree techniques when looking at our data. Add
 
 We will create a single tree that makes its decisions on each split based on creating the most pure regions.
 
-```{r}
+```{r, results = "markup"}
 library(tree)
 set.seed(112)
 df.tree <- tree(df.train$tv ~ ., data = df.train)
@@ -803,7 +805,7 @@ title(main = "TV Purchase Decision Tree - Unpruned")
 
 Next, we can test this tree to see what its error rate along with what it classified correctly.
 
-```{r}
+```{r, results = "markup"}
 df.tree.pred <- predict(df.tree, df.test, type ="class")
 table(Predicted = df.tree.pred, Actual = df.test$tv)
 cat("Test Error Rate: ", mean(df.tree.pred != df.test$tv))
@@ -814,7 +816,7 @@ cat("Test Error Rate: ", mean(df.tree.pred != df.test$tv))
 
 This shows us that the tree experiences the least error relative to its size when the tree size = 4. Even if there is a slight decrease in error as we include more decisions in the tree, the benefit will not be worth the computation cost. This is known as **Cost-Complexity-Pruning**
 
-```{r}
+```{r, results = "markup"}
 cv.df.tree <- suppressWarnings(cv.tree(df.tree, FUN = prune.misclass))
 plot(cv.df.tree$size, cv.df.tree$dev, type = "b", main = "Cross-Validataion",
      xlab = "Tree Size", ylab = "Error")
@@ -824,7 +826,7 @@ plot(cv.df.tree$size, cv.df.tree$dev, type = "b", main = "Cross-Validataion",
 
 Now, we can prune the tree to the size that was show to be optimal by our Cross-Validation. This is our final result.
 
-```{r}
+```{r, results = "markup"}
 df.tree.pruned <- prune.misclass(df.tree, best = 4)
 summary(df.tree.pruned)
 
@@ -843,7 +845,7 @@ We will now create a large assortment of trees to predict the same variable usin
 
 Step 1: Create Model
 
-```{r}
+```{r, results = "markup"}
 library(randomForest)
 
 df.rf <- randomForest(df.train$tv ~., data = df.train, importance = TRUE)
@@ -853,7 +855,7 @@ df.rf
 
 What is shown above is the error on the training data. Now we want to find the testing error.
 
-```{r}
+```{r, results = "markup"}
 df.rf.pred <- predict(df.rf, newdata = df.test)
 table(Predicted = df.rf.pred, Actual = df.test$tv)
 cat("Test Error rate:", mean(df.rf.pred != df.test$tv))
@@ -878,7 +880,7 @@ library(caret)
 
 First, we'll fit an SVM model with default parameters:
 
-```{r}
+```{r, results = "markup"}
 
 # Set seed for reproducibility
 set.seed(123)
@@ -889,6 +891,7 @@ set.seed(123)
 #df.test.svm <- df[-sample,]
 
 # Commented the section above for final knitting so all the models are trained on the same data
+# Know that the small subset was used while working on project
 df.train.svm = df.train
 df.test.svm = df.test
 
@@ -926,9 +929,7 @@ To ensure our model isn't overfit or underfit, we'll tune two key parameters:
 
 We'll use cross-validation based tuning to find optimal values:
 
-```{r}
-# Depending on the size of the 
-
+```{r, results = "markup"}
 # Perform 10-fold (default for tune()) cross-validation for cost and gamma tuning
 set.seed(456)
 svm_tune <- tune(
@@ -952,7 +953,7 @@ plot(svm_tune)
 
 Now we'll train our final model using the optimal parameters identified through tuning and evaluate it's performance on held out data to compare with other models:
 
-```{r}
+```{r, results = "markup"}
 # Extract best parameters
 best_cost <- svm_tune$best.parameters$cost
 best_gamma <- svm_tune$best.parameters$gamma
@@ -987,7 +988,7 @@ cat("Improvement:", (error_rate_default - error_rate_final) * 100, "percentage p
 
 To ensure our model is neither overfit nor underfit, we'll examine how performance changes with training data size:
 
-```{r}
+```{r, results = "markup"}
 # Creating a learning curve
 train_sizes <- seq(0.1, 1, by = 0.1)
 train_errors <- numeric(length(train_sizes))
@@ -1032,7 +1033,7 @@ legend("topright", legend = c("Training Error", "Test Error"),
 
 Let's evaluate the model's discriminative ability using ROC and AUC:
 
-```{r}
+```{r, results = "markup"}
 # Get probability predictions
 svm_probs <- predict(svm_final, df.test.svm, probability = TRUE)
 svm_probs <- attr(svm_probs, "probabilities")[, "Yes"]
@@ -1052,7 +1053,7 @@ abline(a = 0, b = 1, lty = 2, col = "red")
 
 Finally, let's compare the SVM's performance with our previous models:
 
-```{r}
+```{r, results = "markup"}
 # Create comparison table for all models (accuracy or error rate)
 model_comparison <- data.frame(
   Model = c("Logistic Regression", "Decision Tree", "RandomForest", "SVM"),
@@ -1085,7 +1086,7 @@ The Support Vector Machine model for predicting television ownership has shown s
 
 3. **Avoiding Overfitting/Underfitting**: 
    - The learning curve analysis shows that as we increase training data size, the training error increases and test error decreases, indicating the hyperparameters are well tuned because the model doesn't become overfit (training error decreasing and test error increasing) when we include larger portions of the data.
-   - The gap between training and test error is roughly 7-8% (and shrinks with more data), suggesting the model is neither overfit nor underfit.
+   - The gap between training and test error is roughly 2% (and shrinks with more data), suggesting the model is neither excessively overfit nor underfit.
    - Parameter tuning via cross-validation further ensured optimal regularization.
 
 4. **Discriminative Power**: The AUC of 0.951 demonstrates the model's excellent ability to distinguish between households with and without TVs.
