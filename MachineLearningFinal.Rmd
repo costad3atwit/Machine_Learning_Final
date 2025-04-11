@@ -1,19 +1,8 @@
 ---
-jupyter:
-  jupytext:
-    text_representation:
-      extension: .Rmd
-      format_name: rmarkdown
-      format_version: '1.2'
-      jupytext_version: 1.16.7
-  kernelspec:
-    display_name: R
-    name: ir
-output:
-  pdf_document:
-    latex_engine: xelatex
-  html_document:
-    df_print: paged
+title: "Machine Learning Final Project"
+author: "David Costa, Lucas Gaspar"
+date: "2025-04-08"
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE, cache=FALSE}
@@ -23,11 +12,8 @@ output:
       message = FALSE,    # Suppress messages
       results = "hide"    #Exclude  results unless specified
     )
-
 ```
 
-# Machine Learning Final Project
-*Authors: David Costa, Lucas Gaspar*
 
 
 ## Project Description
@@ -129,42 +115,48 @@ str(df)
 ```{r, results = "markup"}
 head(df)
 ```
-### FAMD Testing
+
+## Unsupervised Data Analysis: Factor Analysis of Mixed Data
+
+FAMD allows us to look at our data in a new way by significantly reducing its dimensionality. It differs from PCA in the fact that it can be used on mixed data, containing both quantitative variables as well as qualitative ones. This unsupervised process can help with better understanding trends in the data but also makes it significantly harder to draw conclusions as variables become distorted.
+
+### Step 1: Perform FAMD analysis
+
+First, we load the packages and create a new dataframe so we don't alter our original one we will continue using for other techniques. Then, we perform famd, this automatically normalizes all our features and analyzes their relationships. Essentially, this is performing PCA on the quantitative features, and MCA on the qualitative ones.
 
 ```{r, results = "markup"}
-# Load required packages
 library(FactoMineR)
 library(factoextra)
 
-# Ensure row names are unique before any processing
-#rownames(df) <- paste0("row_", 1:nrow(df))
-
 df_famd <- df
 
-# Perform the FAMD analysis with error handling
 res.famd <- FAMD(df_famd, graph = FALSE, ncp = 5)
+```
 
-# Scree plot should work regardless of row names
-print("Generating scree plot...")
+Step 2: Create Plots
+
+We can now visualize this data in significantly fewer dimensions thanks to our new Dim1 and Dim2. This allows for extremely useful plotting.
+
+```{r, results = "markup"}
+#Scree
 scree_plot <- fviz_screeplot(res.famd)
 print(scree_plot)
+```
+**Scree Plot**
 
-# Try visualization with row names explicitly set
-print("Generating individual plot...")
+- represents how much variance explained in how many dimensions. ~30% in 2 dimensions is not very good, indicating that we there may be many variables that are have great impact.
+- The sharp drop does indicate that these two are significantly more important than others.
 
-# Extract the individual coordinates
+```{r, results = "markup"}
+# Individual
 ind_coords <- as.data.frame(res.famd$ind$coord)
 
-# Make sure the row names are properly set
-rownames(ind_coords) <- paste0("row_", 1:nrow(ind_coords))
-
-# Manual plotting as an alternative to fviz_famd_ind
 library(ggplot2)
 
 # Get the cos2 values for coloring
 cos2 <- rowSums(res.famd$ind$cos2[,1:2])
 
-# Create a data frame for plotting
+# df for plotting
 plot_df <- data.frame(
 Dim1 = ind_coords[,1],
   Dim2 = ind_coords[,2],
@@ -182,40 +174,57 @@ ind_plot <- ggplot(plot_df, aes(x = Dim1, y = Dim2, color = cos2)) +
        y = paste0("Dim 2 (", round(res.famd$eig[2,2], 1), "%)"))
 
 print(ind_plot)
+```
+**Individuals Plot**
 
-# Try the variable plot
-print("Generating variable plot...")
+- plots our altered data in the two new dimensions. 
+- warmer colors indicate a better fit in this new space.
+- We can see a V shape where the data is better fit, indicating two groups that we can analyze.
+
+```{r, results = "markup"}
+# Variable
 var_plot <- fviz_famd_var(res.famd, repel = TRUE)
 print(var_plot)
-
-  
-# Display the structure of your data for debugging
-print("Structure of the first few rows of your data:")
-print(str(head(df_famd)))
 ```
-Scree Plot
-- represents how much variance explained in how many dimensions. ~30% in 2 is not very good
-- not sure how to apply this yet
 
-Individuals
-- hotter means better represented in those dimensions
+**Variables**
 
-Variables
-- kinda shows how variables are grouped i think
-- it looks like theres some patterns of what the variables are and how well one thing explains them
+- looks at our original, unaltered variables and how they exist in the new dimensions.
+- The further the variable along an axis, the stronger it represents that dimension.
+- We can see patterns along each dimension such as:
+  - Dim1 seems to indicate more frugal spending which can relate to a persons overall wealth or spending habits.
+  - Dim 2 seems to indicate variables that are short term such as food and alcohol
 
+While we did not use FAMD to reduce the dimensionality for the rest of our analysis, it still provided insight to how we can look at our variables and what correlations there may be.
 
 
 ## Unsupervised Data Analysis: Clustering
 
-We use cluster analysis to help pick an interesting response variable via hierarchical clustering
+We use cluster analysis to help pick an interesting response variable via PAM clustering
 
-- Tune “cut-off height” for clusters (dissimilarity)
-- To determine what we would like to predict (1 categorical and 1 numerical) and understand the data a little better.
-- Use Gower distance w/ hierarchical cus mixed data (chapter 12 lab)
-- Include formula for gower distance in rmd
-- Explain how hierarchical clustering converges to 1 or more clusters
 
+Since we are looking at mixed data, we have to use Gower distance formula to calculate the distance between different data entries. This formula can be show as:
+
+$$d_{ij} = \frac{\sum_{k=1}^{p} w_k \delta_{ijk}}{\sum_{k=1}^{p} w_k}$$
+The $w_k \delta_{ijk}$ represents different formulas used for different types of data:
+
+**Numeric:**
+$$\delta_{ijk} = \frac{|x_{ik} - x_{jk}|}{R_k}$$
+**Categorical:**
+$$\delta_{ijk} = 
+\begin{cases} 
+0 & \text{if } x_{ik} = x_{jk} \\
+1 & \text{if } x_{ik} \neq x_{jk}
+\end{cases}$$
+
+**Binary:**
+$$\delta_{ijk} = 
+\begin{cases} 
+0 & \text{if } x_{ik} = x_{jk} = 0 \text{ or } x_{ik} = x_{jk} = 1 \\
+1 & \text{if } x_{ik} \neq x_{jk}
+\end{cases}$$
+
+By using all of these together, we can form new interpretation of distance to measure our point.
 
 ```{r}
 gower_df = gower.dist(df)
@@ -290,7 +299,7 @@ plot(sil_7, main = "Silhouette Chart with 7 clusters",
 ```
 
 
-It looks like our best clustering occured with only 2 clusters because the average silhouette width was the highest among each cluster there. We'll continue using the 2 cluster model.
+It looks like our best clustering occurred with only 2 clusters because the average silhouette width was the highest among each cluster there. We'll continue using the 2 cluster model.
 
 ```{r, results = "markup"}
 df$cluster <- pam_result_2$clustering
@@ -374,8 +383,8 @@ Based on the top ten most meaningful features derived above through clustering, 
 ```{r}
 #Before we move on we need to remove the cluster variable from the dataframe so we don't skew our other models
 df$cluster = NULL
-
 ```
+
 
 ## Subsetting the Data for Regression
 
@@ -569,11 +578,13 @@ The multiple regression reveals insights into what drives housing expenditure:
 3. **Validation**: Cross-validation confirms the model is robust, with consistent performance across different subsets of the data.
 
 4. **Prediction Accuracy**: The test MSE of 395058.4 indicates our model can predict housing expenditure with reasonable accuracy (Null Model Test MSE: 5440908), with a 92.105% improvement over the null model.
-This improvement was calculated as $\text{Percentage Improvement}=( \frac{5004201−395058.4}{5004201})*100 ≈ 92.105%$
+This improvement was calculated as $\text{Percentage Improvement}=( \frac{5004201-395058.4}{5004201})*100 \approx 92.105%$
 
 
 ## Logistic Regression
+
 In this section, we'll develop a logistic regression model to predict whether a household has a television (`tv` = "Yes" or "No") based on various household characteristics. Logistic regression is used when the response variable is categorical, making it appropriate for binary classification problems like this one.
+
 
 The logistic regression model uses the logistic (sigmoid) function to estimate the probability of the positive ("Yes") class given the on inputs X:
 
@@ -775,23 +786,17 @@ Our logistic regression analysis reveals important insights into what factors ar
 
 4. **Discriminative Power**: The AUC (Area under ROC curve) of 0.948 indicates that the model has excellent discriminative ability in distinguishing between households with and without TVs. This in combination with the accuracy of 89.7% indicates that the model is strong.
 
-## Decision Tree
-- Only use for the categorical prediction
-- Explain DT creation process briefly (Recursive Binary Splitting) (create partitions in feature space to minimize overall average partition-wise Node purity)
-- Fit tree (overgrown)
-- Cost complexity pruning
- - Make sure to try out different costs
-- Include explanation and equation for Gini Index (Node purity)
-- Plot DT
 
 ## Decision Tree
-We will use two different Decision tree techniques when looking at our data. Additionally, we will only be using these trees to predict categorical values despite the fact that they can be used for both types of data. We will start with making a traditional Decision tree that we will prune back, and then use the Random Forest technique. There will all predict whether or not an entry has a TV.
+
+We will use two different Decision tree techniques when looking at our data. We will only be using these trees to predict categorical values despite the fact that they can be used for both types of data. We will start with making a traditional Decision tree that we will prune back, and then use the Random Forest technique. There will all predict whether or not an entry has a TV.
+
 
 ### Step 1: Create and test Tree
 
 We will create a single tree that makes its decisions on each split based on creating the most pure regions.
 
-```{r, results = "markup"}
+```{r, results = 'markup'}
 library(tree)
 set.seed(112)
 df.tree <- tree(df.train$tv ~ ., data = df.train)
@@ -801,11 +806,12 @@ plot(df.tree)
 text(df.tree, pretty = 0)
 title(main = "TV Purchase Decision Tree - Unpruned")
 ```
+
 ### Step 2: Test tree error
 
 Next, we can test this tree to see what its error rate along with what it classified correctly.
 
-```{r, results = "markup"}
+```{r, results = 'markup'}
 df.tree.pred <- predict(df.tree, df.test, type ="class")
 table(Predicted = df.tree.pred, Actual = df.test$tv)
 cat("Test Error Rate: ", mean(df.tree.pred != df.test$tv))
@@ -814,9 +820,10 @@ cat("Test Error Rate: ", mean(df.tree.pred != df.test$tv))
 
 ### Step 3: Calculate Cross Validation for Pruning 
 
-This shows us that the tree experiences the least error relative to its size when the tree size = 4. Even if there is a slight decrease in error as we include more decisions in the tree, the benefit will not be worth the computation cost. This is known as **Cost-Complexity-Pruning**
+This shows us that the tree experiences the least error relative to its size when the tree size = 3. Even if there is a slight decrease in error as we include more decisions in the tree, the benefit will not be worth the computation cost. This is known as **Cost-Complexity-Pruning**
 
-```{r, results = "markup"}
+```{r, results = 'markup'}
+set.seed(888)
 cv.df.tree <- suppressWarnings(cv.tree(df.tree, FUN = prune.misclass))
 plot(cv.df.tree$size, cv.df.tree$dev, type = "b", main = "Cross-Validataion",
      xlab = "Tree Size", ylab = "Error")
@@ -826,8 +833,9 @@ plot(cv.df.tree$size, cv.df.tree$dev, type = "b", main = "Cross-Validataion",
 
 Now, we can prune the tree to the size that was show to be optimal by our Cross-Validation. This is our final result.
 
-```{r, results = "markup"}
-df.tree.pruned <- prune.misclass(df.tree, best = 4)
+```{r, results = 'markup'}
+set.seed(1)
+df.tree.pruned <- prune.misclass(df.tree, best = 3)
 summary(df.tree.pruned)
 
 df.tree.pruned.pred <- predict(df.tree.pruned, df.test, type ="class")
@@ -838,29 +846,66 @@ plot(df.tree.pruned)
 text(df.tree.pruned, pretty = 0)
 title(main = "TV Purchase Decision Tree - Final")
 ```
+
 This decision tree is superior to our initial one due to its shorter length. This is now an extremely simple and robust model that can be used to predict whether or not a TV is owned.
 
+1. **Key Predictors**: Our tree's most significant predictors are the refrigerator variable and spending on misc and recreation. This is expressed by their presence in the model as well as the lengths of their stems.
+
+2. **Validation**: Cross-validation confirms the model is the optimal size due to the cost complexity pruning that we performed using this information.
+
+3. **Prediction Accuracy**: When used to make predictions in our testing data, we found an error rate of 14.25% which is higher than our 13% from before but significantly smaller of a model.
+
+
 ## Random Forest
+
 We will now create a large assortment of trees to predict the same variable using the Random Forest method. 
 
-Step 1: Create Model
 
-```{r, results = "markup"}
+### Step 1: Create Model
+
+```{r, results = 'markup'}
 library(randomForest)
+set.seed(131)
 
 df.rf <- randomForest(df.train$tv ~., data = df.train, importance = TRUE)
-df.rf
+print(df.rf)
 ```
-### Step 2: Calculate Test Error
 
-What is shown above is the error on the training data. Now we want to find the testing error.
+### Step 2: Evaluate Model
 
-```{r, results = "markup"}
+What is shown above is the error on the training data. Now we want to find the testing error. We also want to see what the most impactful predictors were.
+
+```{r, results = 'markup'}
+set.seed(415)
+
 df.rf.pred <- predict(df.rf, newdata = df.test)
-table(Predicted = df.rf.pred, Actual = df.test$tv)
+print(table(Predicted = df.rf.pred, Actual = df.test$tv))
 cat("Test Error rate:", mean(df.rf.pred != df.test$tv))
+
+varImpPlot(df.rf,
+           main = "Variable Importance on Error",
+           pch = 19,
+           cex = 1.2,
+           n.var = min(20, ncol(df.train) - 1),
+           type = 1)
+
+varImpPlot(df.rf,
+           main = "Variable Importance on Gini-Index",
+           pch = 19,
+           cex = 1.2,
+           n.var = min(20, ncol(df.train) - 1),
+           type = 2)
+
+
 ```
+
 Using this method, we can see a much lower error rate of 9.55% compared the 13.6% present in the single tree model. While the error is lower, there are downsides to this technique such as the lack of a tree for visualization and the significantly longer computation time.
+
+1. **Key Predictors**: Using VarImpPlot we can see the most important variable to be: spend_recreation by a large margin. This makes sense for purchasing a TV. If we look at what variables have a highest impact on minimizing the gini index we can see spend housing, misc, and then refrigerator. This lines up closer to our single decision tree.
+
+2. **Validation**: Random forest models perform validation during the creation of the model which can be seen by the Out-Of-Bag error.This removes the need to test the model on seperate test and training data but we chose to do this anyway to confirm the models performance.
+
+3. **Prediction Accuracy**: When used to make predictions in our testing data, we found an error rate of 9.6% which is even lower than our pruned tree. 
 
 
 ## Support Vector Machine
